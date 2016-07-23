@@ -97,7 +97,7 @@ extern "C" {
 #include <stdarg.h>
 #endif
 
-#ifdef MBED_OPERATORS
+#if defined(MBED_OPERATORS) || defined(LWS_WITH_ESP8266)
 struct sockaddr_in;
 #define LWS_POSIX 0
 #else
@@ -167,7 +167,7 @@ struct sockaddr_in;
 #define LWS_INLINE inline
 #define LWS_O_RDONLY O_RDONLY
 
-#ifndef MBED_OPERATORS
+#if !defined(MBED_OPERATORS) && !defined(LWS_WITH_ESP8266)
 #include <poll.h>
 #include <netdb.h>
 #define LWS_INVALID_FILE -1
@@ -404,7 +404,7 @@ struct lws_pollfd {
 #define LWS_POLLOUT (FD_WRITE)
 #else
 
-#if defined(MBED_OPERATORS)
+#if defined(MBED_OPERATORS) || defined(LWS_WITH_ESP8266)
 /* it's a class lws_conn * */
 typedef void * lws_sockfd_type;
 typedef void * lws_filefd_type;
@@ -3412,7 +3412,7 @@ lws_get_peer_addresses(struct lws *wsi, lws_sockfd_type fd, char *name,
  */
 LWS_VISIBLE LWS_EXTERN const char *
 lws_get_peer_simple(struct lws *wsi, char *name, int namelen);
-
+#ifndef LWS_WITH_ESP8266
 /**
  * lws_interface_to_sa() - Convert interface name or IP to sockaddr struct
  *
@@ -3428,6 +3428,7 @@ LWS_VISIBLE LWS_EXTERN int
 lws_interface_to_sa(int ipv6, const char *ifname, struct sockaddr_in *addr,
 		    size_t addrlen);
 ///@}
+#endif
 
 /** \defgroup misc Miscellaneous APIs
 * ##Miscellaneous APIs

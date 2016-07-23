@@ -109,36 +109,45 @@
 #endif
 #include <netdb.h>
 #include <signal.h>
+#ifdef LWS_WITH_ESP8266
+#include <sockets.h>
+#else
 #include <sys/socket.h>
+#endif
 #ifdef LWS_WITH_HTTP_PROXY
 #include <hubbub/hubbub.h>
 #include <hubbub/parser.h>
 #endif
-#ifdef LWS_BUILTIN_GETIFADDRS
+#if defined(LWS_BUILTIN_GETIFADDRS)
  #include <getifaddrs.h>
 #else
+ #if !defined(LWS_WITH_ESP8266)
  #include <ifaddrs.h>
+ #endif
 #endif
 #if defined (__ANDROID__)
 #include <syslog.h>
 #include <sys/resource.h>
 #else
+#if !defined(LWS_WITH_ESP8266)
 #include <sys/syslog.h>
 #endif
-#include <sys/un.h>
-#include <sys/socket.h>
+#endif
 #include <netdb.h>
+#if !defined(LWS_WITH_ESP8266)
+#include <sys/mman.h>
+#include <sys/un.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <poll.h>
+#endif
 #ifdef LWS_USE_LIBEV
 #include <ev.h>
 #endif
 #ifdef LWS_USE_LIBUV
 #include <uv.h>
 #endif
-#include <sys/mman.h>
 
 #endif /* MBED */
 
@@ -158,10 +167,9 @@
 #define LWS_EISCONN EISCONN
 #define LWS_EWOULDBLOCK EWOULDBLOCK
 
-static inline int compatible_close(int fd) { return close(fd); }
 #define lws_set_blocking_send(wsi)
 
-#ifdef MBED_OPERATORS
+#if defined(MBED_OPERATORS) || defined(LWS_WITH_ESP8266)
 #define lws_socket_is_valid(x) ((x) != NULL)
 #define LWS_SOCK_INVALID (NULL)
 #else
@@ -223,6 +231,10 @@ static inline int compatible_close(int fd) { return close(fd); }
 #endif
 
 #include "libwebsockets.h"
+#if defined(WIN32) || defined(_WIN32)
+#else
+static inline int compatible_close(int fd) { return close(fd); }
+#endif
 
 #if defined(MBED_OPERATORS)
 #undef compatible_close
@@ -237,6 +249,21 @@ static inline int compatible_close(int fd) { return close(fd); }
 #define BYTE_ORDER LITTLE_ENDIAN
 #endif
 #endif
+
+#if defined(LWS_WITH_ESP8266)
+#undef compatible_close
+#define compatible_close(fd) { (void)fd; }
+#ifndef BIG_ENDIAN
+#define BIG_ENDIAN    4321  /* to show byte order (taken from gcc) */
+#endif
+#ifndef LITTLE_ENDIAN
+#define LITTLE_ENDIAN 1234
+#endif
+#ifndef BYTE_ORDER
+#define BYTE_ORDER LITTLE_ENDIAN
+#endif
+#endif
+
 
 #if defined(WIN32) || defined(_WIN32)
 
@@ -608,7 +635,7 @@ struct lws_context_per_thread {
 #ifdef _WIN32
 	WSAEVENT *events;
 #else
-	int dummy_pipe_fds[2];
+	lws_sockfd_type dummy_pipe_fds[2];
 #endif
 	unsigned int fds_count;
 
@@ -1369,7 +1396,7 @@ lws_service_adjust_timeout(struct lws_context *context, int timeout_ms, int tsi)
 LWS_EXTERN int
 lws_service_flag_pending(struct lws_context *context, int tsi);
 
-#if defined(_WIN32) || defined(MBED_OPERATORS)
+#if defined(_WIN32) || defined(MBED_OPERATORS) || defined(LWS_WITH_ESP8266)
 LWS_EXTERN struct lws *
 wsi_from_fd(const struct lws_context *context, lws_sockfd_type fd);
 
@@ -1547,7 +1574,7 @@ LWS_EXTERN int get_daemonize_pid();
 #define get_daemonize_pid() (0)
 #endif
 
-#if !defined(MBED_OPERATORS)
+#if !defined(MBED_OPERATORS) && !defined(LWS_WITH_ESP8266)
 LWS_EXTERN int LWS_WARN_UNUSED_RESULT
 interface_to_sa(struct lws_vhost *vh, const char *ifname,
 		struct sockaddr_in *addr, size_t addrlen);
